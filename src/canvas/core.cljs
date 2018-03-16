@@ -1,5 +1,5 @@
 (ns canvas.core
-    (:require))
+    (:require [clojure.math.combinatorics :as combo]))
 
 (enable-console-print!)
 
@@ -12,28 +12,25 @@
 (set! (.-height canvas) innerHeight)
 (set! (.-width canvas) innerWidth)
 
-(def two-radians (* 2 (.-PI js/Math)))
 (def diameter 60)
 (def radius (/ diameter 2))
+
+(def x-bound (- innerWidth radius))
+(def y-bound (- innerHeight radius))
 
 (defn rand-betw [a b]
   (+ a (rand (- b a))))
 
 (defn make-circle []
-  {:x (rand-betw radius (- innerWidth radius))
-   :y (rand-betw radius (- innerHeight radius))
-   :dx (* (rand) 5)
-   :dy (* (rand) 5)})
-
-(defn in-bounds? [outer-bound]
-  (fn [point] (< radius point (- outer-bound radius))))
-
-(def in-bounds-x? (in-bounds? innerWidth))
-(def in-bounds-y? (in-bounds? innerHeight))
+  {:x (rand-betw radius x-bound)
+   :y (rand-betw radius y-bound)
+   :dx (rand-betw 1 5)
+   :dy (rand-betw 1 5)
+   :radius radius})
 
 (defn resolve-wall-y
   [{y :y :as circle}]
-  (if-not (in-bounds-y? y)
+  (if-not (< radius y y-bound)
     (-> circle
         (update :dy -)
         (as-> c (update c :y + (:dy c))))
@@ -41,7 +38,7 @@
 
 (defn resolve-wall-x
   [{x :x :as circle}]
-  (if-not (in-bounds-x? x)
+  (if-not (< radius x x-bound)
     (-> circle
         (update :dx -)
         (as-> c (update c :x + (:dx c))))
@@ -53,22 +50,42 @@
       (update :x + dx)
       (update :y + dy)))
 
+; (defn resolve-collision
+;   [circles]
+;   (map #(update :dx -) circles))
+
 (def move-with-wall-detection (comp resolve-wall-x resolve-wall-y  move))
+
+(defn collision? [circles]
+  (let [dx (apply - (map :x circles))
+        dy (apply - (map :y circles))
+        d  (.sqrt js/Math (+ (* dx dx) (* dy dy)))
+        min-d (apply + (map :radius circles))]
+    (< d min-d)))
+
+(def two-radians (* 2 (.-PI js/Math)))
+
+(defn colliding-tuples [circles]
+  (as-> circles c
+    (map-indexed vector c)
+    (combo/combinations c 2)
+    (filter (comp collision? #(map second %)) c)))
 
 (defn draw! [circle]
    (.beginPath ctx)
    (set! (.-strokeStyle ctx) "blue")
    (set! (.-fillStyle ctx) "purple")
-   (.arc ctx (:x circle) (:y circle) radius 0 two-radians)
+   (.arc ctx (:x circle) (:y circle) (:radius circle) 0 two-radians)
    (.stroke ctx)
    (.fill ctx))
 
 (defn animate! [circles]
   (.clearRect ctx 0 0 innerWidth innerHeight)
   (doseq [c circles] (draw! c))
+  (when-let [a (not-empty (colliding-tuples circles))] (println a))
   (.requestAnimationFrame js/window (partial animate! (map move-with-wall-detection circles))))
 
-(animate! (repeatedly 5 #(make-circle)))
+(animate! (repeatedly 2 #(make-circle)))
 
 ;(defn on-js-reload [])
   ;; optionally touch your app-state to force rerendering depending on
