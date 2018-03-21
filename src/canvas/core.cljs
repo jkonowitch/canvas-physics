@@ -24,8 +24,8 @@
 (defn make-circle []
   {:x (rand-betw radius x-bound)
    :y (rand-betw radius y-bound)
-   :dx (rand-betw 1 5)
-   :dy (rand-betw 1 5)
+   :dx (rand-betw 1 10)
+   :dy (rand-betw 1 10)
    :radius radius})
 
 (defn resolve-wall-y
@@ -83,7 +83,9 @@
 (defn m-assoc [cs [i circle]]
   (assoc cs i circle))
 
-(defn magnitude [v->]
+(defn magnitude
+  "Returns the scalar magnitude of a 2-d vector."
+  [v->]
   (->> v->
       (map #(.pow js/Math % 2))
       (reduce +)
@@ -92,18 +94,28 @@
 (defn dot-product [& vs->]
   (reduce + (apply map * vs->)))
 
-(defn one-d-velocity [v1 m1 v2 m2]
+(defn one-d-velocity
+  "Newtonian equation of elastic collisions in one dimension. Takes the velocity
+  and mass of two objects and returns the resulting velocity for the first object."
+  [v1 m1 v2 m2]
   (let [numerator (+ (* v1 (- m1 m2)) (* 2 m2 v2))
         denominator (+ m1 m2)]
     (/ numerator denominator)))
 
-(defn collide-physics [[[i c1] [j c2] :as tupe]]
+(defn collide-physics
+  "Takes two intersecting particles and calculates the new velocity vector
+  for each particle. Variables followed by -> are vectors.
+  Algorithm adapted from http://vobarian.com/collisions/2dcollisions2.pdf"
+  [[[i c1] [j c2]]]
   (let [c1->    (map c1 [:x :y])
         c2->    (map c2 [:x :y])
         vc1->   (map c1 [:dx :dy])
         vc2->   (map c2 [:dx :dy])
+        ; normal
         nrml->  (map - c1-> c2->)
+        ; unit normal
         un->    (map #(/ % (magnitude nrml->)) nrml->)
+        ; unit tangent
         ut->    [(- (last un->)) (first un->)]
         vc1n    (dot-product un-> vc1->)
         vc2n    (dot-product un-> vc2->)
