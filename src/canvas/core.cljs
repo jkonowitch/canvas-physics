@@ -12,7 +12,7 @@
 (set! (.-height canvas) innerHeight)
 (set! (.-width canvas) innerWidth)
 
-(def diameter 60)
+(def diameter 90)
 (def radius (/ diameter 2))
 
 (def x-bound (- innerWidth radius))
@@ -98,27 +98,27 @@
     (/ numerator denominator)))
 
 (defn collide-physics [[[i c1] [j c2] :as tupe]]
-  (let [c1-> [(:x c1) (:y c1)]
-        c2-> [(:x c2) (:y c2)]
-        nrml-> (map - c1-> c2->)
-        un-> (map #(/ % (magnitude nrml->)) nrml->)
-        ut-> [(- (last un->)) (first un->)]
-        vc1-> [(:dx c1) (:dy c1)]
-        vc2-> [(:dx c2) (:dy c2)]
-        vc1n (dot-product un-> vc1->)
-        vc2n (dot-product un-> vc2->)
-        vc1t (dot-product ut-> vc1->)
-        vc2t (dot-product ut-> vc2->)
-        vc1n' (one-d-velocity vc1n (:radius c1) vc2n (:radius c2))
-        vc2n' (one-d-velocity vc2n (:radius c2) vc1n (:radius c1))
+  (let [c1->    (map c1 [:x :y])
+        c2->    (map c2 [:x :y])
+        vc1->   (map c1 [:dx :dy])
+        vc2->   (map c2 [:dx :dy])
+        nrml->  (map - c1-> c2->)
+        un->    (map #(/ % (magnitude nrml->)) nrml->)
+        ut->    [(- (last un->)) (first un->)]
+        vc1n    (dot-product un-> vc1->)
+        vc2n    (dot-product un-> vc2->)
+        vc1t    (dot-product ut-> vc1->)
+        vc2t    (dot-product ut-> vc2->)
+        vc1n'   (one-d-velocity vc1n (:radius c1) vc2n (:radius c2))
+        vc2n'   (one-d-velocity vc2n (:radius c2) vc1n (:radius c1))
         vc1n->' (map (partial * vc1n') un->)
         vc2n->' (map (partial * vc2n') un->)
         vc1t->' (map (partial * vc1t) ut->)
         vc2t->' (map (partial * vc2t) ut->)
-        vc1->' (map + vc1n->' vc1t->')
-        vc2->' (map + vc2n->' vc2t->')
-        c1' (merge c1 (zipmap [:dx :dy] vc1->'))
-        c2' (merge c2 (zipmap [:dx :dy] vc2->'))]
+        vc1->'  (map + vc1n->' vc1t->')
+        vc2->'  (map + vc2n->' vc2t->')
+        c1'     (merge c1 (zipmap [:dx :dy] vc1->'))
+        c2'     (merge c2 (zipmap [:dx :dy] vc2->'))]
     [[i c1'][j c2']]))
 
 (def frame (.-requestAnimationFrame js/window))
