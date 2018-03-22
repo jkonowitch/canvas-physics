@@ -26,10 +26,10 @@
    :y (rand-betw radius y-bound)
    :dx (rand-betw 1 10)
    :dy (rand-betw 1 10)
-   :radius radius})
+   :radius (rand-betw 20 50)})
 
 (defn resolve-wall-y
-  [{y :y :as circle}]
+  [{y :y radius :radius :as circle}]
   (if-not (< radius y y-bound)
     (-> circle
         (update :dy -)
@@ -37,25 +37,32 @@
     circle))
 
 (defn resolve-wall-x
-  [{x :x :as circle}]
+  [{x :x radius :radius :as circle}]
   (if-not (< radius x x-bound)
     (-> circle
         (update :dx -)
         (as-> c (update c :x + (:dx c))))
     circle))
 
-(defn move
+(defn gravity
+  [circle]
+  (update circle :dy + .5))
+  ; (if (neg? (:dy circle))
+  ;
+  ;   (update circle :dy - .05)))
+
+
+(defn move-forward
   [{dx :dx dy :dy :as circle}]
   (-> circle
       (update :x + dx)
       (update :y + dy)))
 
-(defn reverse-direction [c]
-  (-> c
-    (update :dx -)
-    (update :dy -)))
-
-(def move-with-wall-detection (comp resolve-wall-x resolve-wall-y  move))
+(defn move-back
+  [{dx :dx dy :dy :as circle}]
+  (-> circle
+      (update :x - dx)
+      (update :y - dy)))
 
 (defn collision? [circles]
   (let [dx (apply - (map :x circles))
@@ -80,9 +87,6 @@
    (.stroke ctx)
    (.fill ctx))
 
-(defn m-assoc [cs [i circle]]
-  (assoc cs i circle))
-
 (defn magnitude
   "Returns the scalar magnitude of a 2-d vector."
   [v->]
@@ -102,7 +106,7 @@
         denominator (+ m1 m2)]
     (/ numerator denominator)))
 
-(defn collide-physics
+(defn collision-physics
   "Takes two intersecting particles and calculates the new velocity vector
   for each particle. Variables followed by -> are vectors.
   Algorithm adapted from http://vobarian.com/collisions/2dcollisions2.pdf"
@@ -133,20 +137,46 @@
         c2'     (merge c2 (zipmap [:dx :dy] vc2->'))]
     [[i c1'][j c2']]))
 
+(defn m-assoc
+  [cs [i circle]]
+  (assoc cs i circle))
+
+(defn resolve-collisions
+  [circles needs-resolution]
+  (if (not-empty needs-resolution)
+    (->> (map collision-physics needs-resolution)
+         (apply concat)
+         (reduce m-assoc (vec circles)))
+    circles))
+
+; (defn collisions
+;   [circles]
+;   (if-let [need-resolution (not-empty (colliding-tuples circles))]
+;     (resolve-and-merge circles need-resolution)
+;     circles))
+
+(def move (comp resolve-wall-x
+                resolve-wall-y
+                move-forward))
+
+(defn step-world
+  [circles]
+  (->> (colliding-tuples circles)
+       (resolve-collisions circles)
+       (map move)))
+
 (def frame (.-requestAnimationFrame js/window))
 
 (defn animate! [circles]
   (.clearRect ctx 0 0 innerWidth innerHeight)
   (doseq [c circles] (draw! c))
-  (if-let [a (not-empty (colliding-tuples circles))]
-    (do
-      (let [b (apply concat (map collide-physics a))]
-        (frame (partial animate! (map move-with-wall-detection (reduce m-assoc (vec circles) b))))))
-    (frame (partial animate! (map move-with-wall-detection circles)))))
+  (frame (partial animate! (step-world circles))))
 
-(animate! (repeatedly 5 #(make-circle)))
+(animate! (repeatedly 10 #(make-circle)))
 
-;(defn on-js-reload [])
-  ;; optionally touch your app-state to force rerendering depending on
-  ;; your application
-  ;; (swap! app-state update-in [:__figwheel_counter] inc)
+; TODO
+; deal with circles ending up inside others
+; radius dynamic
+; spawn so nothing overlaps
+; gravity?
+; do broad phase - grid
