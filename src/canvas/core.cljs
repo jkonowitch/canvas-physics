@@ -143,12 +143,8 @@
 (defn rand-betw [a b]
   (+ a (rand (- b a))))
 
-(def big [30 60])
-
-(def small [10 20])
-
 (defn make-circle []
-  (let [radius (apply rand-betw big)]
+  (let [radius (rand-betw 10 20)]
     {:x        (rand-betw radius (x-bound radius))
      :y        (rand-betw radius (y-bound radius))
      :dx       (rand-betw 1 8)
@@ -198,7 +194,11 @@
   (doseq [c circles] (draw! c))
   (frame! (partial animate! (step-world circles))))
 
-(animate! (spawn-non-intersecting 15))
-
+;; Naive collision detection means a min of 40
+;; also, when the screen gets too crowded objects start sticking together
+;; likely because of collisions > 2 objs
 ;; TODO
-;; do broad phase - grid
+;; Implement broad phase collision detection step
+(def n (min 40 (int (* innerWidth innerHeight .00005))))
+
+(animate! (spawn-non-intersecting n))
