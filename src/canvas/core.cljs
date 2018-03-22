@@ -143,14 +143,32 @@
 (defn rand-betw [a b]
   (+ a (rand (- b a))))
 
-(defn make-circle []
-  (let [radius (rand-betw 50 100)]
-    {:x (rand-betw radius (x-bound radius))
-     :y (rand-betw radius (y-bound radius))
-     :dx (rand-betw 1 10)
-     :dy (rand-betw 1 10)
-     :radius radius}))
+(def big [30 60])
 
+(def small [10 20])
+
+(defn make-circle []
+  (let [radius (apply rand-betw big)]
+    {:x        (rand-betw radius (x-bound radius))
+     :y        (rand-betw radius (y-bound radius))
+     :dx       (rand-betw 1 8)
+     :dy       (rand-betw 1 8)
+     :radius   radius}))
+
+(defn conflicts
+ [c circles]
+ (->> (combo/cartesian-product [c] circles)
+      (filter collision?)))
+
+(defn spawn-non-intersecting
+  "Returns n circles that do not intersect."
+  [n]
+  (loop [circles []
+         c (make-circle)]
+    (cond
+      (= n (count circles))             circles
+      (not-empty (conflicts c circles)) (recur circles (make-circle))
+      :else                             (recur (conj circles c) (make-circle)))))
 
 ;; ----------------
 ;; Side Effects
@@ -180,8 +198,7 @@
   (doseq [c circles] (draw! c))
   (frame! (partial animate! (step-world circles))))
 
-(animate! (repeatedly 5 #(make-circle)))
+(animate! (spawn-non-intersecting 15))
 
-; TODO
-; spawn so nothing overlaps
-; do broad phase - grid
+;; TODO
+;; do broad phase - grid
