@@ -12,37 +12,29 @@
 (set! (.-height canvas) innerHeight)
 (set! (.-width canvas) innerWidth)
 
-(def diameter 90)
-(def radius (/ diameter 2))
-
-(def x-bound (- innerWidth radius))
-(def y-bound (- innerHeight radius))
+(defn x-bound [radius] (- innerWidth radius))
+(defn y-bound [radius] (- innerHeight radius))
 
 (defn rand-betw [a b]
   (+ a (rand (- b a))))
 
 (defn make-circle []
-  {:x (rand-betw radius x-bound)
-   :y (rand-betw radius y-bound)
-   :dx (rand-betw 1 10)
-   :dy (rand-betw 1 10)
-   :radius (rand-betw 20 50)})
+  (let [radius (rand-betw 50 100)]
+    {:x (rand-betw radius (x-bound radius))
+     :y (rand-betw radius (y-bound radius))
+     :dx (rand-betw 1 10)
+     :dy (rand-betw 1 10)
+     :radius radius}))
 
-(defn resolve-wall-y
-  [{y :y radius :radius :as circle}]
-  (if-not (< radius y y-bound)
-    (-> circle
-        (update :dy -)
-        (as-> c (update c :y + (:dy c))))
-    circle))
-
-(defn resolve-wall-x
-  [{x :x radius :radius :as circle}]
-  (if-not (< radius x x-bound)
-    (-> circle
-        (update :dx -)
-        (as-> c (update c :x + (:dx c))))
-    circle))
+(defn resolve-walls
+  [{y :y x :x radius :radius :as c}]
+  (let [xb (x-bound radius) yb (y-bound radius)]
+    (cond
+       (< y radius) (-> c (assoc :y radius) (update :dy -))
+       (< yb y)     (-> c (assoc :y yb) (update :dy -))
+       (< x radius) (-> c (assoc :x radius) (update :dx -))
+       (< xb x)     (-> c (assoc :x xb) (update :dx -))
+       :else c)))
 
 (defn gravity
   [circle]
@@ -67,21 +59,11 @@
         min-d (apply + (map :radius circles))]
     (< d min-d)))
 
-(def two-radians (* 2 (.-PI js/Math)))
-
 (defn colliding-tuples [circles]
   (as-> circles c
     (map-indexed vector c)
     (combo/combinations c 2)
     (filter (comp collision? #(map second %)) c)))
-
-(defn draw! [circle]
-   (.beginPath ctx)
-   (set! (.-strokeStyle ctx) "blue")
-   (set! (.-fillStyle ctx) "purple")
-   (.arc ctx (:x circle) (:y circle) (:radius circle) 0 two-radians)
-   (.stroke ctx)
-   (.fill ctx))
 
 (defn magnitude
   "Returns the scalar magnitude of a 2-d vector."
@@ -147,14 +129,8 @@
           (reduce m-assoc (vec circles)))
     circles))
 
-; (defn collisions
-;   [circles]
-;   (if-let [need-resolution (not-empty (colliding-tuples circles))]
-;     (resolve-and-merge circles need-resolution)
-;     circles))
-
-(def move (comp resolve-wall-x
-                resolve-wall-y
+(def move (comp ;gravity
+                resolve-walls
                 move-forward))
 
 (defn step-world
@@ -163,18 +139,25 @@
        (resolve-collisions circles)
        (map move)))
 
-(def frame (.-requestAnimationFrame js/window))
+(def two-radians (* 2 (.-PI js/Math)))
+
+(defn draw! [circle]
+  (.beginPath ctx)
+  (set! (.-strokeStyle ctx) "blue")
+  (set! (.-fillStyle ctx) "purple")
+  (.arc ctx (:x circle) (:y circle) (:radius circle) 0 two-radians)
+  (.stroke ctx)
+  (.fill ctx))
+
+(def frame! (.-requestAnimationFrame js/window))
 
 (defn animate! [circles]
   (.clearRect ctx 0 0 innerWidth innerHeight)
   (doseq [c circles] (draw! c))
-  (frame (partial animate! (step-world circles))))
+  (frame! (partial animate! (step-world circles))))
 
-(animate! (repeatedly 10 #(make-circle)))
+(animate! (repeatedly 5 #(make-circle)))
 
 ; TODO
-; deal with circles ending up inside others
-; radius dynamic
 ; spawn so nothing overlaps
-; gravity?
 ; do broad phase - grid
