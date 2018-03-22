@@ -47,10 +47,6 @@
 (defn gravity
   [circle]
   (update circle :dy + .5))
-  ; (if (neg? (:dy circle))
-  ;
-  ;   (update circle :dy - .05)))
-
 
 (defn move-forward
   [{dx :dx dy :dy :as circle}]
@@ -144,9 +140,11 @@
 (defn resolve-collisions
   [circles needs-resolution]
   (if (not-empty needs-resolution)
-    (->> (map collision-physics needs-resolution)
-         (apply concat)
-         (reduce m-assoc (vec circles)))
+    (->> needs-resolution
+          (map (partial map #(update % 1 move-back)))
+          (map collision-physics)
+          (apply concat)
+          (reduce m-assoc (vec circles)))
     circles))
 
 ; (defn collisions
