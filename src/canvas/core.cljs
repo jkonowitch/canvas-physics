@@ -3,67 +3,23 @@
 
 (enable-console-print!)
 
-(def canvas (.querySelector js/document "canvas"))
-(def ctx (.getContext canvas "2d"))
+;; ----------------
+;; World Boundaries
 
 (def innerWidth (.-innerWidth js/window))
+
 (def innerHeight (.-innerHeight js/window))
 
-(set! (.-height canvas) innerHeight)
-(set! (.-width canvas) innerWidth)
-
 (defn x-bound [radius] (- innerWidth radius))
+
 (defn y-bound [radius] (- innerHeight radius))
 
-(defn rand-betw [a b]
-  (+ a (rand (- b a))))
-
-(defn make-circle []
-  (let [radius (rand-betw 50 100)]
-    {:x (rand-betw radius (x-bound radius))
-     :y (rand-betw radius (y-bound radius))
-     :dx (rand-betw 1 10)
-     :dy (rand-betw 1 10)
-     :radius radius}))
-
-(defn resolve-walls
-  [{y :y x :x radius :radius :as c}]
-  (let [xb (x-bound radius) yb (y-bound radius)]
-    (cond
-       (< y radius) (-> c (assoc :y radius) (update :dy -))
-       (< yb y)     (-> c (assoc :y yb) (update :dy -))
-       (< x radius) (-> c (assoc :x radius) (update :dx -))
-       (< xb x)     (-> c (assoc :x xb) (update :dx -))
-       :else c)))
+;; ----------------
+;; 2D Physics
 
 (defn gravity
   [circle]
   (update circle :dy + .5))
-
-(defn move-forward
-  [{dx :dx dy :dy :as circle}]
-  (-> circle
-      (update :x + dx)
-      (update :y + dy)))
-
-(defn move-back
-  [{dx :dx dy :dy :as circle}]
-  (-> circle
-      (update :x - dx)
-      (update :y - dy)))
-
-(defn collision? [circles]
-  (let [dx (apply - (map :x circles))
-        dy (apply - (map :y circles))
-        d  (.sqrt js/Math (+ (* dx dx) (* dy dy)))
-        min-d (apply + (map :radius circles))]
-    (< d min-d)))
-
-(defn colliding-tuples [circles]
-  (as-> circles c
-    (map-indexed vector c)
-    (combo/combinations c 2)
-    (filter (comp collision? #(map second %)) c)))
 
 (defn magnitude
   "Returns the scalar magnitude of a 2-d vector."
@@ -73,7 +29,8 @@
       (reduce +)
       (.sqrt js/Math)))
 
-(defn dot-product [& vs->]
+(defn dot-product
+  [& vs->]
   (reduce + (apply map * vs->)))
 
 (defn one-d-velocity
@@ -115,11 +72,45 @@
         c2'     (merge c2 (zipmap [:dx :dy] vc2->'))]
     [[i c1'][j c2']]))
 
+(defn bounce-off-walls
+  [{y :y x :x radius :radius :as c}]
+  (let [xb (x-bound radius) yb (y-bound radius)]
+    (cond
+       (< y radius) (-> c (assoc :y radius) (update :dy -))
+       (< yb y)     (-> c (assoc :y yb) (update :dy -))
+       (< x radius) (-> c (assoc :x radius) (update :dx -))
+       (< xb x)     (-> c (assoc :x xb) (update :dx -))
+       :else c)))
+
+;; ----------------
+;; Collision Detection
+
+(defn move-back
+  [{dx :dx dy :dy :as circle}]
+  (-> circle
+      (update :x - dx)
+      (update :y - dy)))
+
+(defn collision? [circles]
+  (let [dx (apply - (map :x circles))
+        dy (apply - (map :y circles))
+        d  (.sqrt js/Math (+ (* dx dx) (* dy dy)))
+        min-d (apply + (map :radius circles))]
+    (< d min-d)))
+
+(defn colliding-tuples
+  [circles]
+  (as-> circles c
+    (map-indexed vector c)
+    (combo/combinations c 2)
+    (filter (comp collision? #(map second %)) c)))
+
 (defn m-assoc
   [cs [i circle]]
   (assoc cs i circle))
 
-(defn resolve-collisions
+(defn simulate-collisions
+  "Takes circles and resolves any collisions."
   [circles]
   (if-let [needs-resolution (not-empty (colliding-tuples circles))]
     (->> needs-resolution
@@ -129,15 +120,48 @@
           (reduce m-assoc (vec circles)))
     circles))
 
-(def move (comp ;gravity
-                resolve-walls
-                move-forward))
+;; ----------------
+;; Action Functions
+
+(defn move-forward
+  [{dx :dx dy :dy :as circle}]
+  (-> circle
+      (update :x + dx)
+      (update :y + dy)))
 
 (defn step-world
+  "Main function that moves the world forward a step."
   [circles]
   (->> circles
-       (map move)
-       (resolve-collisions)))
+       (map move-forward)
+       (map bounce-off-walls)
+       (simulate-collisions)))
+
+;; ----------------
+;; Object Creation
+
+(defn rand-betw [a b]
+  (+ a (rand (- b a))))
+
+(defn make-circle []
+  (let [radius (rand-betw 50 100)]
+    {:x (rand-betw radius (x-bound radius))
+     :y (rand-betw radius (y-bound radius))
+     :dx (rand-betw 1 10)
+     :dy (rand-betw 1 10)
+     :radius radius}))
+
+
+;; ----------------
+;; Side Effects
+
+(def canvas (.querySelector js/document "canvas"))
+
+(def ctx (.getContext canvas "2d"))
+
+(set! (.-height canvas) innerHeight)
+
+(set! (.-width canvas) innerWidth)
 
 (def two-radians (* 2 (.-PI js/Math)))
 
