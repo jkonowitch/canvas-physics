@@ -120,8 +120,8 @@
   (assoc cs i circle))
 
 (defn resolve-collisions
-  [circles needs-resolution]
-  (if (not-empty needs-resolution)
+  [circles]
+  (if-let [needs-resolution (not-empty (colliding-tuples circles))]
     (->> needs-resolution
           (map (partial map #(update % 1 move-back)))
           (map collision-physics)
@@ -135,9 +135,9 @@
 
 (defn step-world
   [circles]
-  (->> (colliding-tuples circles)
-       (resolve-collisions circles)
-       (map move)))
+  (->> circles
+       (map move)
+       (resolve-collisions)))
 
 (def two-radians (* 2 (.-PI js/Math)))
 
