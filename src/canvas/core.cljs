@@ -147,8 +147,8 @@
   (let [radius (rand-betw 10 20)]
     {:x        (rand-betw radius (x-bound radius))
      :y        (rand-betw radius (y-bound radius))
-     :dx       (rand-betw 1 8)
-     :dy       (rand-betw 1 8)
+     :dx       (rand-betw -8 8)
+     :dy       (rand-betw -8 8)
      :radius   radius}))
 
 (defn conflicts
